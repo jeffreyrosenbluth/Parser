@@ -55,6 +55,7 @@ instance Monad (Parser s) where
     case parse p s of
       (Left e, t)  -> (Left e, t)
       (Right r, t) -> parse (f r) t
+
 --------------------------------------------------------------------------------
 
 class Stream s where
@@ -75,6 +76,8 @@ instance Stream BS.ByteString where
 
 instance Stream LBS.ByteString where
   item = LBS.uncons
+
+--------------------------------------------------------------------------------
 
 satisfy :: Stream s => (Char -> Bool) -> Parser s Char
 satisfy pred = Parser $ \s ->
