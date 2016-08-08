@@ -30,7 +30,7 @@ manyP p = Parser $ \s ->
     (Left e, _)  -> (Right [], s)
     (Right r, t) -> case parse (someP p) t of
       (Left e, _)   -> (Right [r], t)
-      (Right rs, u) -> (Right (r : rs), u)
+      (Right rs, u) -> (Right (r:rs), u)
 
 someP :: Parser s a -> Parser s [a]
 someP p = Parser $ \s ->
@@ -38,7 +38,7 @@ someP p = Parser $ \s ->
     (Left e, t)  -> (Left e, t)
     (Right r, t) -> case parse (manyP p) t of
       (Left e, _)   -> (Right [r], t)
-      (Right rs, u) -> (Right (r : rs), u)
+      (Right rs, u) -> (Right (r:rs), u)
 
 instance Alternative (Parser s) where
   empty   = Parser $ \s -> (Left "Fails", s)
@@ -57,35 +57,36 @@ instance Monad (Parser s) where
       (Right r, t) -> parse (f r) t
 --------------------------------------------------------------------------------
 
-class HasChar s where
+class Stream s where
   item :: s -> Maybe (Char, s)
 
-instance HasChar String where
+instance Stream String where
   item ""     = Nothing
   item (x:xs) = Just (x, xs)
 
-instance HasChar T.Text where
+instance Stream T.Text where
   item = T.uncons
 
-instance HasChar LT.Text where
+instance Stream LT.Text where
   item = LT.uncons
 
-instance HasChar BS.ByteString where
+instance Stream BS.ByteString where
   item = BS.uncons
 
-instance HasChar LBS.ByteString where
+instance Stream LBS.ByteString where
   item = LBS.uncons
 
-satisfy :: HasChar s => (Char -> Bool) -> Parser s Char
+satisfy :: Stream s => (Char -> Bool) -> Parser s Char
 satisfy pred = Parser $ \s ->
   case item s of
     Nothing     -> (Left "No characters remaining", s)
-    Just (c, t) -> if pred c then
-                     (Right c, t)
-                   else
-                     (Left $ "Character " ++ (c : " does not satisfy the predicate"), t)
+    Just (c, t) ->
+      if pred c then
+        (Right c, t)
+      else
+        (Left $ "Character " ++ (c : " does not satisfy the predicate"), t)
 
-oneOf :: HasChar s => [Char] -> Parser s Char
+oneOf :: Stream s => [Char] -> Parser s Char
 oneOf s = satisfy $ flip elem s
 
 try :: Parser s a -> Parser s a
@@ -106,30 +107,30 @@ chainl1 p op = p >>= rest
 chainl :: Parser s a -> Parser s (a -> a -> a) -> a -> Parser s a
 chainl p op a = chainl1 p op <|> pure a
 
-char :: HasChar s => Char -> Parser s Char
+char :: Stream s => Char -> Parser s Char
 char c = satisfy (c ==)
 
-natural :: HasChar s => Parser s Integer
+natural :: Stream s => Parser s Integer
 natural = read <$> some (satisfy isDigit)
 
-string :: HasChar s => String -> Parser s String
+string :: Stream s => String -> Parser s String
 string cs = sequence $ map char cs
 
-spaces :: HasChar s => Parser s String
+spaces :: Stream s => Parser s String
 spaces = many $ oneOf " \n\r"
 
-token :: HasChar s => Parser s a -> Parser s a
+token :: Stream s => Parser s a -> Parser s a
 token p = p <* spaces
 
-reserved :: HasChar s => String -> Parser s String
+reserved :: Stream s => String -> Parser s String
 reserved = token . string
 
-digit :: HasChar s => Parser s Char
+digit :: Stream s => Parser s Char
 digit = satisfy isDigit
 
-number :: HasChar s => Parser s Int
+number :: Stream s => Parser s Int
 number = f <$> ((try $ string "-") <|> pure "") <*> some digit
   where f a b = read $ a ++ b
 
-parens :: HasChar s => Parser s a -> Parser s a
+parens :: Stream s => Parser s a -> Parser s a
 parens m = reserved "(" *> m <* reserved ")"
