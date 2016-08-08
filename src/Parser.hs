@@ -22,10 +22,7 @@ instance Applicative (Parser s) where
   f <*> p = Parser $ \s ->
     case parse f s of
       (Left e, t)  -> (Left e, t)
-      (Right g, t) ->
-        case parse p t of
-          (Left e, u)  -> (Left e, u)
-          (Right r, u) -> (Right (g r), u)
+      (Right g, t) -> parse (g <$> p) t
 
 manyP :: Parser s a -> Parser s [a]
 manyP p = Parser $ \s ->
@@ -86,7 +83,7 @@ satisfy pred = Parser $ \s ->
     Just (c, t) -> if pred c then
                      (Right c, t)
                    else
-                     (Left "First character does not satisfy the predicate", t)
+                     (Left $ "Character " ++ (c : " does not satisfy the predicate"), t)
 
 oneOf :: HasChar s => [Char] -> Parser s Char
 oneOf s = satisfy $ flip elem s
@@ -94,7 +91,7 @@ oneOf s = satisfy $ flip elem s
 try :: Parser s a -> Parser s a
 try p = Parser $ \s ->
   case parse p s of
-    (Left e, _) -> (Left e, s)
+    (Left e, _)  -> (Left e, s)
     (Right r, t) -> (Right r, t)
 
 chainl1 :: Parser s a -> Parser s (a -> a -> a) -> Parser s a
